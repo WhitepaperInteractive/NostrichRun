@@ -1621,27 +1621,62 @@
                 new Promise((resolve) => {
                     try {
                         const ws = new WebSocket(relayUrl);
+                        let resolved = false;
+
                         ws.onopen = () => {
+                            console.log(`📤 Sending EVENT to ${relayUrl}...`);
                             ws.send(JSON.stringify(['EVENT', signedEvent]));
-                            setTimeout(() => ws.close(), 1000);
-                            resolve(true);
                         };
-                        ws.onerror = () => resolve(false);
-                        ws.onclose = () => resolve(true);
-                        setTimeout(() => { 
-                            if (ws.readyState !== WebSocket.CLOSED) ws.close();
-                            resolve(true);
-                        }, 3000);
+
+                        ws.onmessage = (event) => {
+                            const msg = JSON.parse(event.data);
+                            if (msg[0] === 'OK') {
+                                const [, eventId, accepted, reason] = msg;
+                                console.log(`📬 ${relayUrl} OK: accepted=${accepted}, reason=${reason}`);
+                                if (!resolved) {
+                                    resolved = true;
+                                    ws.close();
+                                    resolve(accepted === true);
+                                }
+                            }
+                        };
+
+                        ws.onerror = (error) => {
+                            console.error(`❌ ${relayUrl} error:`, error);
+                            if (!resolved) {
+                                resolved = true;
+                                resolve(false);
+                            }
+                        };
+
+                        ws.onclose = () => {
+                            if (!resolved) {
+                                resolved = true;
+                                console.warn(`⚠️  ${relayUrl} closed without OK response`);
+                                resolve(false);
+                            }
+                        };
+
+                        // Timeout after 5 seconds
+                        setTimeout(() => {
+                            if (!resolved) {
+                                resolved = true;
+                                console.warn(`⏱️  ${relayUrl} timeout`);
+                                ws.close();
+                                resolve(false);
+                            }
+                        }, 5000);
+
                     } catch (e) {
-                        console.error(`Relay error: ${e.message}`);
+                        console.error(`❌ Relay error (${relayUrl}):`, e.message);
                         resolve(false);
                     }
                 })
             );
 
             const results = await Promise.all(publishPromises);
-            const successCount = results.filter(r => r).length;
-            console.log(`📊 Published to ${successCount}/${relays.length} relays`);
+            const successCount = results.filter(r => r === true).length;
+            console.log(`📊 Published to ${successCount}/${relays.length} relays (confirmed)`);
             return successCount > 0;
         }
 
