@@ -1288,7 +1288,7 @@
                     });
                 };
                 
-              // Query GAMESTR leaderboard using developer "d" tag (all scores signed by developer account)
+              // Query GAMESTR leaderboard using "d" tag
                 const filters = [
                     { kinds: [30762], "#d": ["nostrich-run:277813f913fae89093c5cb443c671c0612144c636a43f08abcde2ef2f43d4978"], limit: 100 }
                 ];
@@ -1304,6 +1304,7 @@
                 results.forEach(relayScores => scores.push(...relayScores));
                 console.log("Total scores found:", scores.length);
 
+                /* Remove De-dupe
                 // Deduplicate by pubkey (keep highest score per player)
                 const playerBest = {};
                 for (const entry of scores) {
@@ -1311,6 +1312,7 @@
                         playerBest[entry.pubkey] = entry;
                     }
                 }
+                */
 
                 const sortedScores = Object.values(playerBest)
                     .sort((a, b) => b.score - a.score)
