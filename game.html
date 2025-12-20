@@ -1311,7 +1311,6 @@
                         playerBest[entry.pubkey] = entry;
                     }
                 }
-                
 
                 const sortedScores = Object.values(playerBest)
                     .sort((a, b) => b.score - a.score)
@@ -1611,6 +1610,41 @@
             gameOverModal.classList.remove('active');
         }
 
+        async function publishToRelays(signedEvent) {
+            const relays = [
+                'wss://relay.damus.io',
+                'wss://nos.lol',
+                'wss://relay.snort.social'
+            ];
+
+            const publishPromises = relays.map(relayUrl => 
+                new Promise((resolve) => {
+                    try {
+                        const ws = new WebSocket(relayUrl);
+                        ws.onopen = () => {
+                            ws.send(JSON.stringify(['EVENT', signedEvent]));
+                            setTimeout(() => ws.close(), 1000);
+                            resolve(true);
+                        };
+                        ws.onerror = () => resolve(false);
+                        ws.onclose = () => resolve(true);
+                        setTimeout(() => { 
+                            if (ws.readyState !== WebSocket.CLOSED) ws.close();
+                            resolve(true);
+                        }, 3000);
+                    } catch (e) {
+                        console.error(`Relay error: ${e.message}`);
+                        resolve(false);
+                    }
+                })
+            );
+
+            const results = await Promise.all(publishPromises);
+            const successCount = results.filter(r => r).length;
+            console.log(`📊 Published to ${successCount}/${relays.length} relays`);
+            return successCount > 0;
+        }
+
         async function submitScore() {
             const { pubkey } = getPaywallNostrLogin();
             let displayName = '';
@@ -1640,22 +1674,30 @@
             statusMessage.classList.remove('error');
 
             try {
-                // Call Cloudflare Worker to sign and publish
+                // Step 1: Get signed event from Worker
                 const response = await fetch(WORKER_CONFIG.url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         score: gameState.score,
                         playerPubkey: playerPubkey,
-                        playerName: displayName,
-                        dryRun: false //Don't submit to relays
+                        playerName: displayName
                     })
                 });
 
                 const data = await response.json();
 
                 if (!response.ok) {
-                    throw new Error(data.error || 'Failed to submit score');
+                    throw new Error(data.error || 'Failed to sign score');
+                }
+
+                // Step 2: Publish signed event to relays via WebSocket
+                statusMessage.textContent = 'Publishing to Nostr relays...';
+                const signedEvent = data.event;
+                const published = await publishToRelays(signedEvent);
+
+                if (!published) {
+                    console.warn('Warning: Could not reach all relays, but event may still propagate');
                 }
 
                 statusMessage.textContent = '✓ Score submitted to leaderboard!';
