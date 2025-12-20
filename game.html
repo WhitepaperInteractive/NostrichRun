@@ -1,0 +1,1837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Nostrich Run</title>
+    
+    <!-- Multi Format Favicons -->
+    <link rel="icon" type="image/png" href="./Favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="./Favicon/favicon.svg" />
+    <link rel="shortcut icon" href="./Favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="./Favicon/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Nostrich Run" />
+    <link rel="manifest" href="./Favicon/site.webmanifest" />
+    
+    <script src="https://unpkg.com/nostr-tools@2.7.2/lib/nostr.bundle.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #f7931a;
+        }
+
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .high-score-display {
+            font-size: 16px;
+            color: #888;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+
+        .score-display.pulse {
+            animation: scorePulse 0.4s ease-out;
+        }
+
+        @keyframes scorePulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); color: #fff; }
+            100% { transform: scale(1); }
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            background: #0f0f1a;
+            border: 2px solid #f7931a;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .game-over-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+        }
+
+        .game-over-modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border: 2px solid #f7931a;
+            border-radius: 16px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            color: #f7931a;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+
+        .modal-content .final-score {
+            font-size: 48px;
+            color: #fff;
+            margin-bottom: 10px;
+        }
+
+        .modal-content .sats-label {
+            color: #f7931a;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .new-high-score {
+            color: #00ff88;
+            font-size: 18px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .new-high-score.active {
+            display: block;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .gamestr-section {
+            display: none;
+            background: #0f0f1a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .gamestr-section.active {
+            display: block;
+        }
+
+        .gamestr-section p {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #f7931a;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #ffaa33;
+            transform: scale(1.05);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: #888;
+            border: 1px solid #444;
+        }
+
+        .btn-secondary:hover {
+            border-color: #888;
+            color: #fff;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-message {
+            color: #00ff88;
+            font-size: 14px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        .status-message.error {
+            color: #ff4444;
+        }
+
+        .instructions {
+            color: #666;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 15px;
+        }
+
+        .nostr-info {
+            font-size: 12px;
+            color: #555;
+            margin-top: 15px;
+        }
+
+        .nostr-info code {
+            color: #f7931a;
+            background: #0f0f1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .nostr-login-notice {
+            background: rgba(247, 147, 26, 0.1);
+            border: 1px solid rgba(247, 147, 26, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            color: #f7931a;
+        }
+
+        .access-denied {
+            text-align: center;
+            padding: 40px;
+            color: #ff4444;
+        }
+
+        .access-denied h2 {
+            margin-bottom: 20px;
+        }
+
+        .access-denied p {
+            color: #888;
+            margin-bottom: 20px;
+        }
+
+        .user-profile-bar {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 999px;
+            padding: 6px 10px 6px 6px;
+            margin-bottom: 10px;
+        }
+
+        .user-profile-bar.hidden {
+            display: none;
+        }
+
+        .user-profile-bar img {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #f7931a;
+        }
+
+        .user-profile-bar .username {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .top-btn {
+            background: linear-gradient(135deg, rgba(247, 147, 26, 0.2), rgba(247, 147, 26, 0.1));
+            border: 1px solid rgba(247, 147, 26, 0.4);
+            color: #f7931a;
+            padding: 10px 14px;
+            min-width: 44px;
+            min-height: 44px;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: rgba(247, 147, 26, 0.3);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .top-btn:hover {
+            background: linear-gradient(135deg, rgba(247, 147, 26, 0.4), rgba(247, 147, 26, 0.2));
+            color: #fff;
+            border-color: #f7931a;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(247, 147, 26, 0.3);
+        }
+
+        .top-btn.muted {
+            color: #ff4444;
+            border-color: rgba(255, 68, 68, 0.4);
+            background: linear-gradient(135deg, rgba(255, 68, 68, 0.2), rgba(255, 68, 68, 0.1));
+        }
+
+        .top-btn.muted:hover {
+            border-color: #ff4444;
+            background: linear-gradient(135deg, rgba(255, 68, 68, 0.4), rgba(255, 68, 68, 0.2));
+        }
+
+        .session-warning {
+            color: #ff6b6b;
+            font-size: 12px;
+            margin: 10px 0;
+            padding: 8px;
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            border-radius: 6px;
+        }
+
+        .game-logo {
+            height: 40px;
+            width: auto;
+            margin-right: 15px;
+        }
+
+        .modal-logo {
+            height: 60px;
+            width: auto;
+            margin-bottom: 15px;
+        }
+
+        .nostr-login-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .nostr-login-section .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .nostr-login-section .tab {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #888;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .nostr-login-section .tab.active {
+            border-color: #f7931a;
+            color: #f7931a;
+            background: rgba(247, 147, 26, 0.1);
+        }
+
+        .nostr-login-section .tab-panel {
+            display: none;
+        }
+
+        .nostr-login-section .tab-panel.active {
+            display: block;
+        }
+
+        .nostr-login-section input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: #fff;
+            font-size: 12px;
+            margin-bottom: 8px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .nostr-login-section input:focus {
+            outline: none;
+            border-color: rgba(247, 147, 26, 0.5);
+        }
+
+        .nostr-login-section .btn-small {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        .guest-name-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .guest-name-section label {
+            display: block;
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .guest-name-section input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #fff;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .guest-name-section input:focus {
+            outline: none;
+            border-color: rgba(247, 147, 26, 0.5);
+        }
+
+        .logged-in-profile {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(247, 147, 26, 0.1);
+            border: 1px solid rgba(247, 147, 26, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+        }
+
+        .logged-in-profile img {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #f7931a;
+        }
+
+        .logged-in-profile .profile-info {
+            flex: 1;
+        }
+
+        .logged-in-profile .profile-name {
+            color: #fff;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .logged-in-profile .profile-npub {
+            color: #888;
+            font-size: 11px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .or-divider {
+            text-align: center;
+            color: #555;
+            font-size: 12px;
+            margin: 12px 0;
+            position: relative;
+        }
+
+        .or-divider::before,
+        .or-divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .or-divider::before { left: 0; }
+        .or-divider::after { right: 0; }
+
+        .leaderboard-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+
+        .leaderboard-modal.active {
+            display: flex;
+        }
+
+        .leaderboard-content {
+            background: #1a1a2e;
+            border: 2px solid #f7931a;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .leaderboard-content h2 {
+            color: #f7931a;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .leaderboard-loading {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+
+        .leaderboard-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+
+        .leaderboard-rank {
+            font-size: 18px;
+            font-weight: bold;
+            color: #f7931a;
+            min-width: 30px;
+        }
+
+        .leaderboard-rank.gold { color: #ffd700; }
+        .leaderboard-rank.silver { color: #c0c0c0; }
+        .leaderboard-rank.bronze { color: #cd7f32; }
+
+        .leaderboard-player {
+            flex: 1;
+            color: #fff;
+            font-size: 14px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .leaderboard-score {
+            color: #f7931a;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .leaderboard-empty {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+
+        .leaderboard-close {
+            display: block;
+            margin: 20px auto 0;
+            padding: 12px 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <!-- User Profile Bar (shows if logged in via paywall) -->
+        <div class="user-profile-bar hidden" id="userProfileBar">
+            <img id="profilePic" src="" alt="" style="display: none;">
+            <span class="username" id="profileName"></span>
+        </div>
+
+        <div class="header">
+            <div style="display: flex; align-items: center;">
+                <img src="./logo.png" alt="Nostrich Run" class="game-logo">
+                <div class="score-display" id="scoreDisplay">
+                    <span id="score">0</span> sats
+                </div>
+            </div>
+            <div class="header-right">
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <div class="header-buttons">
+                        <button class="top-btn" id="leaderboardBtn" title="Leaderboard">🏆</button>
+                        <button class="top-btn" id="muteBtn" title="Toggle Sound">🔊</button>
+                        <button class="top-btn" id="backToMenuBtn">☰</button>
+                    </div>
+                    <div class="high-score-display">
+                        HI: <span id="highScore">0</span> sats
+                    </div>
+                </div>
+            </div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="200"></canvas>
+        <div class="instructions">
+            Press SPACE to jump | DOWN ARROW to duck
+        </div>
+    </div>
+
+    <div class="game-over-modal" id="gameOverModal">
+        <div class="modal-content">
+            <img src="./logo.png" alt="Nostrich Run" class="modal-logo">
+            <h2>GAME OVER</h2>
+            <div class="final-score" id="finalScore">0</div>
+            <div class="sats-label">sats collected</div>
+            <div class="new-high-score" id="newHighScore">🏆 NEW HIGH SCORE! 🏆</div>
+            
+            <div class="gamestr-section" id="gamestrSection">
+                <!-- Logged in profile display -->
+                <div class="logged-in-profile" id="loggedInProfile" style="display: none;">
+                    <img id="modalProfilePic" src="" alt="">
+                    <div class="profile-info">
+                        <div class="profile-name" id="modalProfileName"></div>
+                        <div class="profile-npub" id="modalProfileNpub"></div>
+                    </div>
+                </div>
+
+                <!-- Not logged in section -->
+                <div id="notLoggedInSection">
+                    <!-- Guest account display -->
+                    <div class="logged-in-profile" id="guestAccountDisplay">
+                        <div class="profile-info">
+                            <div class="profile-name">Guest Account</div>
+                            <div class="profile-npub" id="guestAccountPubkey"></div>
+                        </div>
+                    </div>
+
+                    <div class="or-divider">or login with NOSTR</div>
+
+                    <!-- NOSTR Login options -->
+                    <div class="nostr-login-section">
+                        <div class="tabs">
+                            <button class="tab active" data-modal-tab="ext">Extension</button>
+                            <button class="tab" data-modal-tab="nsec">Nsec</button>
+                            <button class="tab" data-modal-tab="bunker">Bunker</button>
+                        </div>
+
+                        <!-- Extension tab -->
+                        <div class="tab-panel active" id="modal-tab-ext">
+                            <button class="btn btn-secondary btn-small" id="modalBtnNip07">Connect Extension</button>
+                        </div>
+
+                        <!-- Nsec tab -->
+                        <div class="tab-panel" id="modal-tab-nsec">
+                            <input type="password" id="modalNsecInput" placeholder="nsec1...">
+                            <button class="btn btn-secondary btn-small" id="modalBtnNsec">Login</button>
+                        </div>
+
+                        <!-- Bunker tab -->
+                        <div class="tab-panel" id="modal-tab-bunker">
+                            <input type="text" id="modalBunkerInput" placeholder="bunker://...">
+                            <button class="btn btn-secondary btn-small" id="modalBtnBunker">Connect</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- <p>Submit your score to the Gamestr leaderboard on Nostr?</p>-->
+                <p class="session-warning">Submitting your score will end your current session. You'll need to pay again to play.</p>
+                <button class="btn btn-primary" id="submitScoreBtn">Submit to Gamestr ⚡</button>
+                <div class="status-message" id="statusMessage"></div>
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+                <button class="btn btn-primary" id="playAgainBtn">Play Again</button>
+                <a class="btn btn-secondary" href="./index.html" id="backToPaywall">Back to Menu</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="leaderboard-modal" id="leaderboardModal">
+        <div class="leaderboard-content">
+            <h2>🏆 Leaderboard</h2>
+            <div id="leaderboardBody">
+                <div class="leaderboard-loading">Loading scores...</div>
+            </div>
+            <button class="btn btn-primary leaderboard-close" id="closeLeaderboardBtn">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // =====================
+        // CONFIGURATION
+        // =====================
+        const WORKER_CONFIG = {
+            // Update this to your Cloudflare Worker URL after deployment
+            // Format: https://your-worker-name.your-subdomain.workers.dev
+            url: 'https://nostrich-run-worker.whitepaperinteractive.workers.dev/submit-score'
+        };
+
+        // =====================
+        // SESSION ACCESS CHECK
+        // =====================
+        const hasAccess = sessionStorage.getItem("p2p_access") === "true";
+        if (!hasAccess) {
+            document.body.innerHTML = `
+                <div class="game-container">
+                    <div class="access-denied">
+                        <h2>Access Denied</h2>
+                        <p>Please pay to access the game.</p>
+                        <a class="btn btn-primary" href="./index.html">Go to Payment</a>
+                    </div>
+                </div>
+            `;
+            setTimeout(() => { window.location.href = "./index.html"; }, 2000);
+        }
+
+        // =====================
+        // RANDOM NAME GENERATOR
+        // =====================
+        const firstNames = [
+            'Swift', 'Lucky', 'Brave', 'Mighty', 'Quick', 'Clever', 'Bold', 'Happy',
+            'Sunny', 'Storm', 'Thunder', 'Flash', 'Blaze', 'Crystal', 'Shadow', 'Star',
+            'River', 'Forest', 'Ocean', 'Mountain', 'Sky', 'Moon', 'Comet', 'Phoenix',
+            'Dragon', 'Tiger', 'Eagle', 'Falcon', 'Wolf', 'Bear', 'Hawk', 'Raven'
+        ];
+        
+        const lastNames = [
+            'Runner', 'Jumper', 'Sprinter', 'Dasher', 'Leaper', 'Chaser', 'Rider', 'Walker',
+            'Hunter', 'Seeker', 'Finder', 'Explorer', 'Wanderer', 'Voyager', 'Traveler', 'Scout',
+            'Champion', 'Master', 'Legend', 'Hero', 'Knight', 'Warrior', 'Guardian', 'Protector',
+            'Dreamer', 'Builder', 'Maker', 'Creator', 'Artist', 'Wizard', 'Sage', 'Oracle'
+        ];
+        
+        function generateRandomName() {
+            const first = firstNames[Math.floor(Math.random() * firstNames.length)];
+            const last = lastNames[Math.floor(Math.random() * lastNames.length)];
+            return `${first} ${last}`;
+        }
+
+        // =====================
+        // NOSTR LOGIN PERSISTENCE
+        // =====================
+        let cachedProfile = null;
+        
+        function getPaywallNostrLogin() {
+            const pubkey = localStorage.getItem("nostr_pubkey");
+            const loginMethod = localStorage.getItem("nostr_login_method");
+            return { pubkey, loginMethod };
+        }
+
+        function saveNostrLogin(pubkey, loginMethod) {
+            localStorage.setItem("nostr_pubkey", pubkey);
+            localStorage.setItem("nostr_login_method", loginMethod);
+        }
+
+        // Load profile from paywall login
+        async function loadPaywallProfile() {
+            const { pubkey } = getPaywallNostrLogin();
+            if (!pubkey) return;
+
+            const profileBar = document.getElementById('userProfileBar');
+            const profileName = document.getElementById('profileName');
+            const profilePic = document.getElementById('profilePic');
+
+            profileName.textContent = pubkey.slice(0, 8) + "..." + pubkey.slice(-8);
+            profileBar.classList.remove('hidden');
+            
+            cachedProfile = { pubkey, name: null, picture: null };
+
+            const relay = "wss://relay.nostr.band";
+            const subId = Math.random().toString(36).substring(2);
+
+            try {
+                const socket = new WebSocket(relay);
+                socket.onopen = () => {
+                    const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
+                    socket.send(JSON.stringify(req));
+                };
+                socket.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data[0] === "EVENT" && data[2].kind === 0) {
+                        const metadata = JSON.parse(data[2].content);
+                        if (metadata.name) {
+                            profileName.textContent = metadata.name;
+                            cachedProfile.name = metadata.name;
+                        }
+                        if (metadata.picture) {
+                            profilePic.src = metadata.picture;
+                            profilePic.style.display = "block";
+                            cachedProfile.picture = metadata.picture;
+                        }
+                        socket.close();
+                    }
+                };
+            } catch (e) {
+                console.warn("Failed to load profile:", e);
+            }
+        }
+
+        // Update modal UI based on login status
+        function updateModalLoginUI() {
+            const { pubkey } = getPaywallNostrLogin();
+            const loggedInProfile = document.getElementById('loggedInProfile');
+            const notLoggedInSection = document.getElementById('notLoggedInSection');
+            const guestAccountDisplay = document.getElementById('guestAccountDisplay');
+            const guestAccountPubkey = document.getElementById('guestAccountPubkey');
+            
+            if (pubkey) {
+                loggedInProfile.style.display = 'flex';
+                notLoggedInSection.style.display = 'none';
+                
+                const modalProfilePic = document.getElementById('modalProfilePic');
+                const modalProfileName = document.getElementById('modalProfileName');
+                const modalProfileNpub = document.getElementById('modalProfileNpub');
+                
+                const npub = NostrTools.nip19.npubEncode(pubkey);
+                modalProfileNpub.textContent = npub.slice(0, 16) + '...' + npub.slice(-8);
+                
+                if (cachedProfile && cachedProfile.name) {
+                    modalProfileName.textContent = cachedProfile.name;
+                } else {
+                    modalProfileName.textContent = pubkey.slice(0, 8) + '...' + pubkey.slice(-8);
+                }
+                
+                if (cachedProfile && cachedProfile.picture) {
+                    modalProfilePic.src = cachedProfile.picture;
+                    modalProfilePic.style.display = 'block';
+                } else {
+                    modalProfilePic.style.display = 'none';
+                }
+            } else {
+                loggedInProfile.style.display = 'none';
+                notLoggedInSection.style.display = 'block';
+                
+                // Show generated guest account with display name
+                if (nostrKeys && nostrKeys.publicKey) {
+                    guestAccountDisplay.style.display = 'flex';
+                    const nameElement = guestAccountDisplay.querySelector('.profile-name');
+                    const pubkeyElement = guestAccountDisplay.querySelector('.profile-npub');
+                    nameElement.textContent = nostrKeys.displayName || 'Guest Player';
+                    pubkeyElement.textContent = nostrKeys.publicKey.slice(0, 8) + '...' + nostrKeys.publicKey.slice(-8);
+                }
+            }
+        }
+
+        // Setup modal tab switching
+        function setupModalTabs() {
+            document.querySelectorAll('[data-modal-tab]').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('[data-modal-tab]').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.nostr-login-section .tab-panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    const targetId = 'modal-tab-' + tab.dataset.modalTab;
+                    document.getElementById(targetId).classList.add('active');
+                });
+            });
+        }
+
+        // Modal login handlers
+        function setupModalLoginHandlers() {
+            document.getElementById('modalBtnNip07').onclick = async () => {
+                if (!window.nostr) {
+                    alert('Nostr extension not detected');
+                    return;
+                }
+                try {
+                    const pubkey = await window.nostr.getPublicKey();
+                    saveNostrLogin(pubkey, 'extension');
+                    await loadPaywallProfile();
+                    initNostrKeys();
+                    updateModalLoginUI();
+                } catch (err) {
+                    alert('Failed to connect: ' + err.message);
+                }
+            };
+
+            document.getElementById('modalBtnNsec').onclick = async () => {
+                const nsec = document.getElementById('modalNsecInput').value.trim();
+                if (!nsec || !nsec.startsWith('nsec')) {
+                    alert('Please enter a valid NSEC key');
+                    return;
+                }
+                try {
+                    const { decode } = await import('https://esm.sh/nostr-tools@2.7.0/nip19');
+                    const { getPublicKey } = await import('https://esm.sh/nostr-tools@2.7.0/pure');
+                    const { bytesToHex } = await import('https://esm.sh/@noble/hashes@1.3.3/utils');
+                    
+                    const decoded = decode(nsec);
+                    if (decoded.type !== 'nsec') throw new Error('Invalid nsec');
+                    
+                    const privateKeyBytes = decoded.data;
+                    const pubkeyBytes = getPublicKey(privateKeyBytes);
+                    const pubkeyHex = typeof pubkeyBytes === 'string' ? pubkeyBytes : bytesToHex(pubkeyBytes);
+                    
+                    saveNostrLogin(pubkeyHex, 'nsec');
+                    await loadPaywallProfile();
+                    initNostrKeys();
+                    updateModalLoginUI();
+                    document.getElementById('modalNsecInput').value = '';
+                } catch (err) {
+                    alert('Invalid NSEC key: ' + err.message);
+                }
+            };
+
+            document.getElementById('modalBtnBunker').onclick = async () => {
+                const url = document.getElementById('modalBunkerInput').value.trim();
+                if (!url.startsWith('bunker://')) {
+                    alert('Invalid Bunker URL');
+                    return;
+                }
+                const match = url.match(/^bunker:\/\/([^?]+)/);
+                if (match) {
+                    const pubkey = match[1];
+                    saveNostrLogin(pubkey, 'bunker');
+                    await loadPaywallProfile();
+                    initNostrKeys();
+                    updateModalLoginUI();
+                } else {
+                    alert('Could not parse pubkey from Bunker URL');
+                }
+            };
+        }
+
+        // Back to menu button handler
+        function setupBackToMenuButton() {
+            const backBtn = document.getElementById('backToMenuBtn');
+            backBtn.onclick = () => {
+                window.location.href = './index.html';
+            };
+        }
+
+        if (hasAccess) {
+            loadPaywallProfile();
+            setupModalTabs();
+            setupModalLoginHandlers();
+            setupBackToMenuButton();
+        }
+
+        // =====================
+        // GAME CODE (UNCHANGED GAMEPLAY)
+        // =====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('highScore');
+        const gameOverModal = document.getElementById('gameOverModal');
+        const finalScoreEl = document.getElementById('finalScore');
+        const newHighScoreEl = document.getElementById('newHighScore');
+        const gamestrSection = document.getElementById('gamestrSection');
+        const submitScoreBtn = document.getElementById('submitScoreBtn');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const nostrInfo = document.getElementById('nostrInfo');
+        const muteBtn = document.getElementById('muteBtn');
+        const scoreDisplayEl = document.getElementById('scoreDisplay');
+
+        let audioCtx = null;
+        let isMuted = localStorage.getItem('zapRaptorMuted') === 'true';
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function updateMuteButton() {
+            muteBtn.textContent = isMuted ? '🔇' : '🔊';
+            muteBtn.classList.toggle('muted', isMuted);
+        }
+
+        function toggleMute(e) {
+            e.stopPropagation();
+            isMuted = !isMuted;
+            localStorage.setItem('zapRaptorMuted', isMuted);
+            updateMuteButton();
+        }
+
+        updateMuteButton();
+        muteBtn.addEventListener('click', toggleMute);
+
+        function playJumpSound() {
+            if (!audioCtx || isMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(600, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playGameOverSound() {
+            if (!audioCtx || isMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function triggerScorePulse() {
+            scoreDisplayEl.classList.remove('pulse');
+            void scoreDisplayEl.offsetWidth;
+            scoreDisplayEl.classList.add('pulse');
+        }
+
+        function playMilestoneSound() {
+            if (!audioCtx || isMuted) return;
+            const notes = [523, 659, 784];
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.1);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime + i * 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + i * 0.1 + 0.15);
+                osc.start(audioCtx.currentTime + i * 0.1);
+                osc.stop(audioCtx.currentTime + i * 0.1 + 0.15);
+            });
+        }
+
+        const GROUND_HEIGHT = 20;
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -12;
+        const INITIAL_SPEED = 6;
+        const MAX_SPEED = 15;
+        const SPEED_INCREMENT = 0.001;
+
+        let gameState = {
+            score: 0,
+            highScore: parseInt(sessionStorage.getItem('zapRaptorHighScore')) || 0,
+            isRunning: false,
+            isGameOver: false,
+            speed: INITIAL_SPEED,
+            lastMilestone: 0
+        };
+
+        let dino = {
+            x: 50,
+            y: canvas.height - GROUND_HEIGHT - 50,
+            width: 44,
+            height: 50,
+            velocityY: 0,
+            isJumping: false,
+            isDucking: false,
+            frameCount: 0,
+            legUp: false
+        };
+
+        let obstacles = [];
+        let clouds = [];
+        let groundOffset = 0;
+
+        let nostrKeys = null;
+
+        highScoreDisplay.textContent = gameState.highScore;
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        function hexToBytes(hex) {
+            const bytes = new Uint8Array(hex.length / 2);
+            for (let i = 0; i < hex.length; i += 2) {
+                bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+            }
+            return bytes;
+        }
+
+        function initNostrKeys() {
+            // Clean up any legacy guest keys from localStorage (security: don't persist guest private keys)
+            localStorage.removeItem('nostrichRunGameKeys');
+            
+            // Check if we have a login from the paywall
+            const paywallLogin = getPaywallNostrLogin();
+            
+            if (paywallLogin.pubkey && paywallLogin.loginMethod === "extension") {
+                // User logged in via NIP-07 extension - we'll use window.nostr for signing
+                nostrKeys = {
+                    publicKey: paywallLogin.pubkey,
+                    useExtension: true,
+                    fromPaywall: true
+                };
+                console.log("Using NOSTR extension login from paywall");
+                return;
+            }
+            
+            // For nsec/bunker logins: use their pubkey for display, game keys for signing
+            // For guests (no login): use temporary session-only keys
+            
+            // Use sessionStorage for temporary guest keys (cleared when browser closes)
+            let storedKeys = sessionStorage.getItem('nostrichRunSessionKeys');
+            if (storedKeys) {
+                nostrKeys = JSON.parse(storedKeys);
+            } else {
+                // Generate fresh temporary keys for this session
+                const sk = NostrTools.generateSecretKey();
+                const pk = NostrTools.getPublicKey(sk);
+                nostrKeys = {
+                    privateKey: bytesToHex(sk),
+                    publicKey: pk,
+                    displayName: generateRandomName(),
+                    isTemporary: true
+                };
+                sessionStorage.setItem('nostrichRunSessionKeys', JSON.stringify(nostrKeys));
+            }
+            
+            // If paywall login exists (nsec/bunker), note it for display but use session keys for signing
+            if (paywallLogin.pubkey) {
+                nostrKeys.displayPubkey = paywallLogin.pubkey;
+                nostrKeys.fromPaywall = true;
+                console.log("Paywall login detected, using session keys for signing");
+            }
+        }
+        
+        function clearTemporaryKeys() {
+            // Clear temporary session keys after score submission
+            sessionStorage.removeItem('nostrichRunSessionKeys');
+            nostrKeys = null;
+        }
+
+        // =====================
+        // LEADERBOARD FUNCTIONS
+        // =====================
+        const leaderboardModal = document.getElementById('leaderboardModal');
+        const leaderboardBody = document.getElementById('leaderboardBody');
+        const leaderboardBtn = document.getElementById('leaderboardBtn');
+        const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
+
+        async function fetchProfileMetadata(pubkey) {
+            return new Promise((resolve) => {
+                const relays = [
+                    "wss://relay.nostr.band",
+                    "wss://relay.damus.io",
+                    "wss://nos.lol"
+                ];
+                let found = false;
+
+                const queryRelay = (relayUrl) => {
+                    return new Promise((relayResolve) => {
+                        const subId = Math.random().toString(36).substring(2);
+                        const socket = new WebSocket(relayUrl);
+                        const timeout = setTimeout(() => {
+                            socket.close();
+                            relayResolve(null);
+                        }, 3000);
+
+                        socket.onopen = () => {
+                            const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
+                            socket.send(JSON.stringify(req));
+                        };
+
+                        socket.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+                            if (data[0] === "EVENT" && data[2].kind === 0 && !found) {
+                                try {
+                                    const metadata = JSON.parse(data[2].content);
+                                    found = true;
+                                    clearTimeout(timeout);
+                                    socket.close();
+                                    relayResolve(metadata);
+                                } catch (e) {
+                                    relayResolve(null);
+                                }
+                            }
+                        };
+
+                        socket.onerror = () => {
+                            clearTimeout(timeout);
+                            relayResolve(null);
+                        };
+                    });
+                };
+
+                Promise.race(relays.map(queryRelay)).then(metadata => {
+                    resolve(metadata || {});
+                });
+            });
+        }
+
+        async function fetchLeaderboard() {
+            leaderboardBody.innerHTML = '<div class="leaderboard-loading">Loading scores...</div>';
+            leaderboardModal.classList.add('active');
+
+            try {
+                const relays = [
+                    "wss://relay.nostr.band",
+                    "wss://relay.damus.io",
+                    "wss://nos.lol"
+                ];
+                const scores = [];
+                
+                const queryRelay = async (relayUrl, filter) => {
+                    return new Promise((resolve) => {
+                        const subId = Math.random().toString(36).substring(2);
+                        const socket = new WebSocket(relayUrl);
+                        const timeout = setTimeout(() => {
+                            socket.close();
+                            resolve([]);
+                        }, 8000);
+
+                        socket.onopen = () => {
+                            const req = ["REQ", subId, filter];
+                            console.log("Leaderboard query:", relayUrl, JSON.stringify(filter));
+                            socket.send(JSON.stringify(req));
+                        };
+
+                        const relayScores = [];
+                        socket.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+                            console.log("Relay response:", relayUrl, data[0], data[2] ? "event received" : "");
+                            if (data[0] === "EVENT" && data[2]) {
+                                const evt = data[2];
+                                console.log("Event tags:", evt.tags);
+                                const dTag = evt.tags.find(t => t[0] === "d");
+                                const scoreTag = evt.tags.find(t => t[0] === "score");
+                                const pTag = evt.tags.find(t => t[0] === "p");
+                                
+                                // For kind 33334, score is in content
+                                // For kind 30762, score is in tags
+                                let scoreValue = 0;
+                                if (evt.kind === 33334) {
+                                    scoreValue = parseInt(evt.content) || 0;
+                                } else if (scoreTag) {
+                                    scoreValue = parseInt(scoreTag[1]) || 0;
+                                }
+                                
+                                if (scoreValue > 0) {
+                                    relayScores.push({
+                                        pubkey: pTag ? pTag[1] : evt.pubkey,
+                                        score: scoreValue,
+                                        created_at: evt.created_at
+                                    });
+                                }
+                            } else if (data[0] === "EOSE") {
+                                clearTimeout(timeout);
+                                socket.close();
+                                resolve(relayScores);
+                            }
+                        };
+
+                        socket.onerror = () => {
+                            clearTimeout(timeout);
+                            resolve([]);
+                        };
+                    });
+                };
+                
+              // Query GAMESTR leaderboard using developer "d" tag (all scores signed by developer account)
+                const filters = [
+                    { kinds: [30762], "#d": ["nostrich-run:277813f913fae89093c5cb443c671c0612144c636a43f08abcde2ef2f43d4978"], limit: 100 }
+                ];
+                
+                const queryPromises = [];
+                for (const relay of relays) {
+                    for (const filter of filters) {
+                        queryPromises.push(queryRelay(relay, filter));
+                    }
+                }
+                
+                const results = await Promise.all(queryPromises);
+                results.forEach(relayScores => scores.push(...relayScores));
+                console.log("Total scores found:", scores.length);
+
+                // Deduplicate by pubkey (keep highest score per player)
+                const playerBest = {};
+                for (const entry of scores) {
+                    if (!playerBest[entry.pubkey] || entry.score > playerBest[entry.pubkey].score) {
+                        playerBest[entry.pubkey] = entry;
+                    }
+                }
+
+                const sortedScores = Object.values(playerBest)
+                    .sort((a, b) => b.score - a.score)
+                    .slice(0, 20);
+
+                if (sortedScores.length === 0) {
+                    leaderboardBody.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
+                    return;
+                }
+
+                // Fetch profile metadata for each player
+                const profilePromises = sortedScores.map(async (entry) => {
+                    const metadata = await fetchProfileMetadata(entry.pubkey);
+                    return {
+                        ...entry,
+                        name: metadata.name || (entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4)),
+                        picture: metadata.picture || null
+                    };
+                });
+
+                const entriesWithProfiles = await Promise.all(profilePromises);
+
+                let html = '<ul class="leaderboard-list">';
+                entriesWithProfiles.forEach((entry, index) => {
+                    const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
+                    const pictureHtml = entry.picture 
+                        ? `<img src="${entry.picture}" alt="${entry.name}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover; border: 1px solid #f7931a; margin-right: 8px;">` 
+                        : '';
+                    html += `
+                        <li class="leaderboard-item">
+                            <span class="leaderboard-rank ${rankClass}">#${index + 1}</span>
+                            <div style="display: flex; align-items: center; flex: 1; overflow: hidden;">
+                                ${pictureHtml}
+                                <span class="leaderboard-player">${entry.name}</span>
+                            </div>
+                            <span class="leaderboard-score">${entry.score} sats</span>
+                        </li>
+                    `;
+                });
+                html += '</ul>';
+                leaderboardBody.innerHTML = html;
+
+            } catch (error) {
+                console.error('Error fetching leaderboard:', error);
+                leaderboardBody.innerHTML = '<div class="leaderboard-empty">Failed to load leaderboard. Try again later.</div>';
+            }
+        }
+
+        function showLeaderboard() {
+            fetchLeaderboard();
+        }
+
+        function closeLeaderboard() {
+            leaderboardModal.classList.remove('active');
+        }
+
+        leaderboardBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            showLeaderboard();
+        });
+
+        closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
+
+        leaderboardModal.addEventListener('click', (e) => {
+            if (e.target === leaderboardModal) {
+                closeLeaderboard();
+            }
+        });
+
+        function drawDino() {
+            ctx.save();
+
+            const x = dino.x;
+            const y = dino.y;
+            const ducking = dino.isDucking && !dino.isJumping;
+
+            ctx.fillStyle = '#800080';
+
+            if (ducking) {
+                ctx.fillRect(x + 4, y + 32, 36, 10);
+                ctx.fillRect(x + 32, y + 28, 4, 6);
+                ctx.beginPath();
+                ctx.arc(x + 38, y + 28, 5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x + 38, y + 24, 3, 3);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x + 39, y + 25, 1, 1);
+                ctx.fillStyle = '#f7931a';
+                ctx.fillRect(x + 42, y + 27, 5, 2);
+
+                ctx.fillStyle = '#4b004b';
+                ctx.fillRect(x + 8, y + 38, 6, 4);
+                ctx.fillRect(x + 26, y + 38, 6, 4);
+
+                ctx.fillStyle = '#666';
+                ctx.fillRect(x + 10, y + 42, 4, 8);
+                ctx.fillRect(x + 24, y + 42, 4, 8);
+            } else {
+                ctx.fillRect(x + 8, y + 20, 28, 20);
+                ctx.fillRect(x + 20, y + 0, 4, 20);
+                ctx.beginPath();
+                ctx.arc(x + 22, y - 2, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x + 20, y - 6, 3, 3);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x + 21, y - 5, 1, 1);
+                ctx.fillStyle = '#f7931a';
+                ctx.fillRect(x + 26, y - 3, 6, 2);
+
+                ctx.fillStyle = '#4b004b';
+                ctx.fillRect(x + 10, y + 25, 6, 12);
+                ctx.fillRect(x + 28, y + 25, 6, 12);
+
+                ctx.fillStyle = '#666';
+
+                if (!gameState.isRunning || gameState.isGameOver) {
+                    ctx.fillRect(x + 16, y + 40, 4, 10);
+                    ctx.fillRect(x + 24, y + 40, 4, 10);
+                } else {
+                    dino.frameCount++;
+                    if (dino.frameCount > 5) {
+                        dino.legUp = !dino.legUp;
+                        dino.frameCount = 0;
+                    }
+
+                    if (dino.isJumping) {
+                        ctx.fillRect(x + 16, y + 40, 4, 10);
+                        ctx.fillRect(x + 24, y + 40, 4, 10);
+                    } else if (dino.legUp) {
+                        ctx.fillRect(x + 16, y + 40, 4, 10);
+                        ctx.fillRect(x + 24, y + 44, 4, 6);
+                    } else {
+                        ctx.fillRect(x + 16, y + 44, 4, 6);
+                        ctx.fillRect(x + 24, y + 40, 4, 10);
+                    }
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawObstacle(obstacle) {
+            ctx.fillStyle = '#666';
+            
+            if (obstacle.type === 'cactus') {
+                ctx.fillRect(obstacle.x + obstacle.width/2 - 5, obstacle.y, 10, obstacle.height);
+                if (obstacle.width > 20) {
+                    ctx.fillRect(obstacle.x + 5, obstacle.y + 10, 8, 15);
+                    ctx.fillRect(obstacle.x + 5, obstacle.y + 10, 8, 5);
+                    ctx.fillRect(obstacle.x + obstacle.width - 13, obstacle.y + 15, 8, 12);
+                    ctx.fillRect(obstacle.x + obstacle.width - 13, obstacle.y + 15, 8, 5);
+                }
+            } else if (obstacle.type === 'bird') {
+                ctx.fillRect(obstacle.x + 10, obstacle.y + 10, 25, 8);
+                obstacle.wingUp = obstacle.wingUp || false;
+                if (Math.floor(Date.now() / 150) % 2 === 0) {
+                    ctx.fillRect(obstacle.x + 15, obstacle.y, 15, 12);
+                } else {
+                    ctx.fillRect(obstacle.x + 15, obstacle.y + 16, 15, 12);
+                }
+                ctx.fillRect(obstacle.x, obstacle.y + 8, 12, 6);
+            }
+        }
+
+        function drawCloud(cloud) {
+            ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+            ctx.beginPath();
+            ctx.arc(cloud.x, cloud.y, 20, 0, Math.PI * 2);
+            ctx.arc(cloud.x + 25, cloud.y - 5, 25, 0, Math.PI * 2);
+            ctx.arc(cloud.x + 50, cloud.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        function drawGround() {
+            ctx.fillStyle = '#444';
+            ctx.fillRect(0, canvas.height - GROUND_HEIGHT, canvas.width, 2);
+            
+            ctx.fillStyle = '#333';
+            for (let i = -groundOffset % 20; i < canvas.width; i += 20) {
+                if (Math.random() > 0.7) {
+                    ctx.fillRect(i, canvas.height - GROUND_HEIGHT + 5, 2, 2);
+                }
+            }
+        }
+
+        function spawnObstacle() {
+            const type = Math.random() > 0.8 && gameState.speed > 8 ? 'bird' : 'cactus';
+            let obstacle;
+            
+            if (type === 'cactus') {
+                const height = 30 + Math.random() * 30;
+                const width = 15 + Math.random() * 25;
+                obstacle = {
+                    type: 'cactus',
+                    x: canvas.width,
+                    y: canvas.height - GROUND_HEIGHT - height,
+                    width: width,
+                    height: height
+                };
+            } else {
+                const heights = [canvas.height - GROUND_HEIGHT - 70, canvas.height - GROUND_HEIGHT - 50, canvas.height - GROUND_HEIGHT - 90];
+                obstacle = {
+                    type: 'bird',
+                    x: canvas.width,
+                    y: heights[Math.floor(Math.random() * heights.length)],
+                    width: 45,
+                    height: 30
+                };
+            }
+            
+            obstacles.push(obstacle);
+        }
+
+        function spawnCloud() {
+            clouds.push({
+                x: canvas.width + 50,
+                y: 30 + Math.random() * 50,
+                speed: 1 + Math.random()
+            });
+        }
+
+        function checkCollision(dino, obstacle) {
+            const padding = 5;
+            const ducking = dino.isDucking && !dino.isJumping;
+            const effectiveY = ducking ? dino.y + 23 : dino.y;
+            return dino.x + padding < obstacle.x + obstacle.width &&
+                   dino.x + dino.width - padding > obstacle.x &&
+                   effectiveY + padding < obstacle.y + obstacle.height &&
+                   dino.y + dino.height - padding > obstacle.y;
+        }
+
+        function jump() {
+            if (!dino.isJumping && gameState.isRunning && !gameState.isGameOver) {
+                dino.velocityY = JUMP_FORCE;
+                dino.isJumping = true;
+                playJumpSound();
+            }
+        }
+
+        function startGame() {
+            if (!gameState.isRunning && !gameState.isGameOver) {
+                initAudio();
+                gameState.isRunning = true;
+                gameState.score = 0;
+                gameState.speed = INITIAL_SPEED;
+                gameState.lastMilestone = 0;
+                obstacles = [];
+                dino.y = canvas.height - GROUND_HEIGHT - 50;
+                dino.velocityY = 0;
+                dino.isJumping = false;
+                jump();
+            }
+        }
+
+        function gameOver() {
+            gameState.isGameOver = true;
+            gameState.isRunning = false;
+            playGameOverSound();
+
+            // NOTE: Session access is now only cleared after GAMESTR submission, not on game over
+            
+            const isNewHighScore = gameState.score > gameState.highScore;
+            if (isNewHighScore) {
+                gameState.highScore = gameState.score;
+                sessionStorage.setItem('zapRaptorHighScore', gameState.highScore);
+                highScoreDisplay.textContent = gameState.highScore;
+            }
+            
+            finalScoreEl.textContent = gameState.score;
+            newHighScoreEl.classList.toggle('active', isNewHighScore);
+            gamestrSection.classList.toggle('active', isNewHighScore);
+            statusMessage.textContent = '';
+            statusMessage.classList.remove('error');
+            submitScoreBtn.disabled = false;
+            
+            // Update the modal login UI to show profile or guest name input
+            if (isNewHighScore) {
+                updateModalLoginUI();
+                
+            }
+            
+            gameOverModal.classList.add('active');
+        }
+
+        function resetGame() {
+            // Play Again - no need to check session access since we only clear it on GAMESTR submission
+            gameState.isGameOver = false;
+            gameState.isRunning = false;
+            gameState.score = 0;
+            gameState.speed = INITIAL_SPEED;
+            obstacles = [];
+            dino.y = canvas.height - GROUND_HEIGHT - 50;
+            dino.velocityY = 0;
+            dino.isJumping = false;
+            gameOverModal.classList.remove('active');
+        }
+
+        async function submitScore() {
+            const { pubkey } = getPaywallNostrLogin();
+            let displayName = '';
+            
+            // Use player's pubkey for display, or use temporary key for guests
+            let playerPubkey = pubkey;
+            if (!playerPubkey) {
+                // For guests: use temporary account key with assigned display name
+                if (!nostrKeys) {
+                    initNostrKeys();
+                }
+                playerPubkey = nostrKeys?.publicKey;
+                displayName = nostrKeys?.displayName || 'Guest Player';
+            } else {
+                // Logged in - use profile name
+                displayName = cachedProfile && cachedProfile.name ? cachedProfile.name : pubkey.slice(0, 8) + '...' + pubkey.slice(-8);
+            }
+
+            if (!playerPubkey) {
+                statusMessage.textContent = 'Error: No Nostr pubkey available';
+                statusMessage.classList.add('error');
+                return;
+            }
+
+            submitScoreBtn.disabled = true;
+            statusMessage.textContent = 'Submitting to leaderboard...';
+            statusMessage.classList.remove('error');
+
+            try {
+                // Call Cloudflare Worker to sign and publish
+                const response = await fetch(WORKER_CONFIG.url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        score: gameState.score,
+                        playerPubkey: playerPubkey,
+                        playerName: displayName,
+                        dryRun: true //Don't submit to relays
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to submit score');
+                }
+
+                statusMessage.textContent = '✓ Score submitted to leaderboard!';
+                statusMessage.classList.remove('error');
+                
+                // Clear session access after successful submission
+                sessionStorage.removeItem("p2p_access");
+                
+                // Show the leaderboard after successful submission
+                setTimeout(() => {
+                    showLeaderboard();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error submitting score:', error);
+                statusMessage.textContent = 'Failed to submit. Try again?';
+                statusMessage.classList.add('error');
+                submitScoreBtn.disabled = false;
+            }
+        }
+
+        function update() {
+            if (!gameState.isRunning || gameState.isGameOver) return;
+
+            gameState.score++;
+            scoreDisplay.textContent = gameState.score;
+
+            if (gameState.score % 1000 === 0 && gameState.score !== gameState.lastMilestone) {
+                gameState.lastMilestone = gameState.score;
+                playMilestoneSound();
+                triggerScorePulse();
+            }
+
+            gameState.speed = Math.min(MAX_SPEED, INITIAL_SPEED + gameState.score * SPEED_INCREMENT);
+
+            dino.velocityY += GRAVITY;
+            dino.y += dino.velocityY;
+
+            if (dino.y >= canvas.height - GROUND_HEIGHT - dino.height) {
+                dino.y = canvas.height - GROUND_HEIGHT - dino.height;
+                dino.velocityY = 0;
+                dino.isJumping = false;
+            }
+
+            groundOffset += gameState.speed;
+
+            obstacles.forEach(obstacle => {
+                obstacle.x -= gameState.speed;
+            });
+
+            obstacles = obstacles.filter(obstacle => obstacle.x > -obstacle.width);
+
+            clouds.forEach(cloud => {
+                cloud.x -= cloud.speed;
+            });
+
+            clouds = clouds.filter(cloud => cloud.x > -100);
+
+            if (Math.random() < 0.02 && (obstacles.length === 0 || obstacles[obstacles.length - 1].x < canvas.width - 300)) {
+                spawnObstacle();
+            }
+
+            if (Math.random() < 0.005 && clouds.length < 5) {
+                spawnCloud();
+            }
+
+            for (const obstacle of obstacles) {
+                if (checkCollision(dino, obstacle)) {
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#0f0f1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            clouds.forEach(drawCloud);
+            drawGround();
+            obstacles.forEach(drawObstacle);
+            drawDino();
+
+            if (!gameState.isRunning && !gameState.isGameOver) {
+                ctx.fillStyle = '#888';
+                ctx.font = '20px Courier New';
+                ctx.textAlign = 'center';
+                ctx.fillText('Press SPACE or tap to start', canvas.width / 2, canvas.height / 2);
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                e.preventDefault();
+                if (gameState.isGameOver) return;
+                if (!gameState.isRunning) {
+                    startGame();
+                } else {
+                    jump();
+                }
+            }
+            if (e.code === 'ArrowDown') {
+                e.preventDefault();
+                if (gameState.isRunning && !gameState.isGameOver) {
+                    dino.isDucking = true;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'ArrowDown') {
+                dino.isDucking = false;
+            }
+        });
+
+        canvas.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (gameState.isGameOver) return;
+            if (!gameState.isRunning) {
+                startGame();
+            } else {
+                jump();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState.isGameOver) return;
+            if (!gameState.isRunning) {
+                startGame();
+            } else {
+                jump();
+            }
+        }, { passive: false });
+
+        document.body.addEventListener('touchstart', (e) => {
+            // Don't intercept touches on modals, buttons, or interactive elements
+            if (e.target.closest('.modal-content')) return;
+            if (e.target.closest('.header-buttons')) return;
+            if (e.target.closest('.top-btn')) return;
+            if (e.target.closest('button')) return;
+            if (e.target.closest('a')) return;
+            if (gameState.isGameOver) return;
+            e.preventDefault();
+            if (!gameState.isRunning) {
+                startGame();
+            } else {
+                jump();
+            }
+        }, { passive: false });
+
+        submitScoreBtn.addEventListener('click', submitScore);
+        playAgainBtn.addEventListener('click', () => {
+            // Check if session is still valid (cleared after GAMESTR submission)
+            if (sessionStorage.getItem("p2p_access") !== "true") {
+                window.location.href = './index.html';
+                return;
+            }
+            resetGame();
+        });
+
+        initNostrKeys();
+        gameLoop();
+
+        for (let i = 0; i < 3; i++) {
+            clouds.push({
+                x: Math.random() * canvas.width,
+                y: 30 + Math.random() * 50,
+                speed: 1 + Math.random()
+            });
+        }
+    </script>
+</body>
+</html>
