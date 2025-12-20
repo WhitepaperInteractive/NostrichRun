@@ -1304,7 +1304,6 @@
                 results.forEach(relayScores => scores.push(...relayScores));
                 console.log("Total scores found:", scores.length);
 
-                /* Remove De-dupe
                 // Deduplicate by pubkey (keep highest score per player)
                 const playerBest = {};
                 for (const entry of scores) {
@@ -1312,7 +1311,7 @@
                         playerBest[entry.pubkey] = entry;
                     }
                 }
-                */
+                
 
                 const sortedScores = Object.values(playerBest)
                     .sort((a, b) => b.score - a.score)
