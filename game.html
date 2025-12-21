@@ -1170,54 +1170,60 @@
         const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
 
         async function fetchProfileMetadata(pubkey) {
-            return new Promise((resolve) => {
-                const relays = [
-                    "wss://relay.nostr.band",
-                    "wss://relay.damus.io",
-                    "wss://nos.lol"
-                ];
-                let found = false;
+            const relays = [
+                "wss://relay.nostr.band",
+                "wss://relay.damus.io",
+                "wss://nos.lol"
+            ];
 
-                const queryRelay = (relayUrl) => {
-                    return new Promise((relayResolve) => {
-                        const subId = Math.random().toString(36).substring(2);
-                        const socket = new WebSocket(relayUrl);
-                        const timeout = setTimeout(() => {
-                            socket.close();
-                            relayResolve(null);
-                        }, 3000);
+            const queryRelay = (relayUrl) => {
+                return new Promise((relayResolve) => {
+                    const subId = Math.random().toString(36).substring(2);
+                    const socket = new WebSocket(relayUrl);
+                    let foundMetadata = false;
+                    
+                    const timeout = setTimeout(() => {
+                        socket.close();
+                        if (!foundMetadata) relayResolve(null);
+                    }, 5000);
 
-                        socket.onopen = () => {
-                            const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
-                            socket.send(JSON.stringify(req));
-                        };
+                    socket.onopen = () => {
+                        const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
+                        socket.send(JSON.stringify(req));
+                    };
 
-                        socket.onmessage = (event) => {
-                            const data = JSON.parse(event.data);
-                            if (data[0] === "EVENT" && data[2].kind === 0 && !found) {
-                                try {
-                                    const metadata = JSON.parse(data[2].content);
-                                    found = true;
+                    socket.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data[0] === "EVENT" && data[2].kind === 0) {
+                            try {
+                                const metadata = JSON.parse(data[2].content);
+                                if (metadata.name) {
+                                    foundMetadata = true;
                                     clearTimeout(timeout);
                                     socket.close();
                                     relayResolve(metadata);
-                                } catch (e) {
-                                    relayResolve(null);
                                 }
+                            } catch (e) {
+                                // Continue waiting for other events
                             }
-                        };
-
-                        socket.onerror = () => {
+                        } else if (data[0] === "EOSE") {
                             clearTimeout(timeout);
-                            relayResolve(null);
-                        };
-                    });
-                };
+                            socket.close();
+                            if (!foundMetadata) relayResolve(null);
+                        }
+                    };
 
-                Promise.race(relays.map(queryRelay)).then(metadata => {
-                    resolve(metadata || {});
+                    socket.onerror = () => {
+                        clearTimeout(timeout);
+                        if (!foundMetadata) relayResolve(null);
+                    };
                 });
-            });
+            };
+
+            // Query all relays in parallel and return first successful result with a name
+            const results = await Promise.all(relays.map(queryRelay));
+            const metadata = results.find(m => m && m.name) || results.find(m => m) || {};
+            return metadata;
         }
 
         async function fetchLeaderboard() {
@@ -1297,7 +1303,8 @@
                                     relayScores.push({
                                         pubkey: pTag ? pTag[1] : evt.pubkey,
                                         score: scoreValue,
-                                        created_at: evt.created_at
+                                        created_at: evt.created_at,
+                                        d_tag: dTag ? dTag[1] : evt.id
                                     });
                                     console.log("Score added:", scoreValue, "sats by", (pTag ? pTag[1] : evt.pubkey).slice(0, 8));
                                 }
@@ -1335,8 +1342,18 @@
                 results.forEach(relayScores => scores.push(...relayScores));
                 console.log("Total scores found:", scores.length);
 
-                // Sort all scores (including multiple per player) by score descending
-                const sortedScores = scores
+                // Deduplicate scores by d_tag - keep only unique score events
+                const uniqueScores = {};
+                scores.forEach(score => {
+                    if (!uniqueScores[score.d_tag]) {
+                        uniqueScores[score.d_tag] = score;
+                    }
+                });
+                const deduplicatedScores = Object.values(uniqueScores);
+                console.log("Scores after deduplication:", deduplicatedScores.length);
+
+                // Sort all scores by score descending
+                const sortedScores = deduplicatedScores
                     .sort((a, b) => b.score - a.score)
                     .slice(0, 20);
 
