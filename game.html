@@ -1272,14 +1272,15 @@
                                     console.log("Skipping event - d tag doesn't match nostrich-run");
                                     return;
                                 }
-                                
+                                */
+                               
                                 // Filter out test events - exclude if "t" tag = "test"
                                 const testTag = evt.tags.find(t => t[0] === "t" && t[1] === "test");
                                 if (testTag) {
                                     console.log("Skipping event - marked as test");
                                     return;
                                 }
-                                    */
+                                   
                                 
                                 const scoreTag = evt.tags.find(t => t[0] === "score");
                                 const pTag = evt.tags.find(t => t[0] === "p");
