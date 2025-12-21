@@ -1258,6 +1258,13 @@
                                 const evt = data[2];
                                 console.log("✓ Event received from", relayUrl, "- id:", evt.id);
                                 
+                                // Filter by publisher pubkey - only events from developer
+                                const devPubkey = "277813f913fae89093c5cb443c671c0612144c636a43f08abcde2ef2f43d4978";
+                                if (evt.pubkey !== devPubkey) {
+                                    console.log("Skipping event - not published by developer pubkey");
+                                    return;
+                                }
+                                
                                 // Filter by "d" tag - only include nostrich-run games
                                 const dTag = evt.tags.find(t => t[0] === "d");
                                 if (!dTag || !dTag[1].startsWith("nostrich-run")) {
