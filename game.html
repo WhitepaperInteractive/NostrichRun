@@ -1304,7 +1304,8 @@
                                         pubkey: pTag ? pTag[1] : evt.pubkey,
                                         score: scoreValue,
                                         created_at: evt.created_at,
-                                        d_tag: dTag ? dTag[1] : evt.id
+                                        d_tag: dTag ? dTag[1] : evt.id,
+                                        contentText: evt.content
                                     });
                                     console.log("Score added:", scoreValue, "sats by", (pTag ? pTag[1] : evt.pubkey).slice(0, 8));
                                 }
@@ -1362,13 +1363,34 @@
                     return;
                 }
 
-                // Fetch profile metadata for each player
+                // Fetch profile metadata for each player and extract name from content
                 const profilePromises = sortedScores.map(async (entry) => {
-                    const metadata = await fetchProfileMetadata(entry.pubkey);
+                    let displayName = entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4);
+                    let picture = null;
+
+                    // Try to extract player name from event content first
+                    if (entry.contentText) {
+                        const match = entry.contentText.match(/^(.+?)\s+scored/);
+                        if (match && match[1] && match[1].trim()) {
+                            displayName = match[1].trim();
+                        }
+                    }
+
+                    // If no name found in content, fetch from profile metadata
+                    if (displayName === (entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4))) {
+                        const metadata = await fetchProfileMetadata(entry.pubkey);
+                        if (metadata.name) {
+                            displayName = metadata.name;
+                        }
+                        if (metadata.picture) {
+                            picture = metadata.picture;
+                        }
+                    }
+
                     return {
                         ...entry,
-                        name: metadata.name || (entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4)),
-                        picture: metadata.picture || null
+                        name: displayName,
+                        picture: picture
                     };
                 });
 
