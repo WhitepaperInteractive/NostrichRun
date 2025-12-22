@@ -125,7 +125,7 @@ async function loadNostrProfile(pubkey, loginMethod = "extension") {
   // Save to localStorage for persistence (pubkey and method only, NOT private keys)
   saveNostrLogin(pubkey, loginMethod);
 
-  const relay = "wss://relay.nostr.band";
+  const relay = "wss://relay.damus.io";
   const subId = Math.random().toString(36).substring(2);
 
   const socket = new WebSocket(relay);
