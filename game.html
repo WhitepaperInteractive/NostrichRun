@@ -797,31 +797,50 @@
             const relay = "wss://relay.nostr.band";
             const subId = Math.random().toString(36).substring(2);
 
-            try {
-                const socket = new WebSocket(relay);
-                socket.onopen = () => {
-                    const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
-                    socket.send(JSON.stringify(req));
-                };
-                socket.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    if (data[0] === "EVENT" && data[2].kind === 0) {
-                        const metadata = JSON.parse(data[2].content);
-                        if (metadata.name) {
-                            profileName.textContent = metadata.name;
-                            cachedProfile.name = metadata.name;
-                        }
-                        if (metadata.picture) {
-                            profilePic.src = metadata.picture;
-                            profilePic.style.display = "block";
-                            cachedProfile.picture = metadata.picture;
-                        }
+            return new Promise((resolve) => {
+                try {
+                    const socket = new WebSocket(relay);
+                    const timeout = setTimeout(() => {
                         socket.close();
-                    }
-                };
-            } catch (e) {
-                console.warn("Failed to load profile:", e);
-            }
+                        resolve();
+                    }, 5000);
+
+                    socket.onopen = () => {
+                        const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
+                        socket.send(JSON.stringify(req));
+                    };
+                    socket.onmessage = (event) => {
+                        const data = JSON.parse(event.data);
+                        if (data[0] === "EVENT" && data[2].kind === 0) {
+                            try {
+                                const metadata = JSON.parse(data[2].content);
+                                if (metadata.name) {
+                                    profileName.textContent = metadata.name;
+                                    cachedProfile.name = metadata.name;
+                                }
+                                if (metadata.picture) {
+                                    profilePic.src = metadata.picture;
+                                    profilePic.style.display = "block";
+                                    cachedProfile.picture = metadata.picture;
+                                }
+                            } catch (e) {
+                                console.warn("Failed to parse metadata:", e);
+                            }
+                            clearTimeout(timeout);
+                            socket.close();
+                            resolve();
+                        }
+                    };
+
+                    socket.onerror = () => {
+                        clearTimeout(timeout);
+                        resolve();
+                    };
+                } catch (e) {
+                    console.warn("Failed to load profile:", e);
+                    resolve();
+                }
+            });
         }
 
         // Update modal UI based on login status
@@ -957,10 +976,12 @@
         }
 
         if (hasAccess) {
-            loadPaywallProfile();
-            setupModalTabs();
-            setupModalLoginHandlers();
-            setupBackToMenuButton();
+            loadPaywallProfile().then(() => {
+                updateModalLoginUI();
+                setupModalTabs();
+                setupModalLoginHandlers();
+                setupBackToMenuButton();
+            });
         }
 
         // =====================
