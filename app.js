@@ -125,31 +125,74 @@ async function loadNostrProfile(pubkey, loginMethod = "extension") {
   // Save to localStorage for persistence (pubkey and method only, NOT private keys)
   saveNostrLogin(pubkey, loginMethod);
 
-  const relay = "wss://relay.damus.io";
-  const subId = Math.random().toString(36).substring(2);
+  return new Promise((resolve) => {
+    const relays = ["wss://relay.nostr.band", "wss://relay.damus.io", "wss://nos.lol"];
+    let profileFound = false;
+    let completedRelays = 0;
 
-  const socket = new WebSocket(relay);
+    relays.forEach((relay) => {
+      const subId = Math.random().toString(36).substring(2);
+      const socket = new WebSocket(relay);
+      const timeout = setTimeout(() => {
+        socket.close();
+        completedRelays++;
+        if (completedRelays === relays.length && !profileFound) {
+          resolve();
+        }
+      }, 3000);
 
-  socket.onopen = () => {
-    const req = ["REQ", subId, {
-      kinds: [0],
-      authors: [pubkey]
-    }];
-    socket.send(JSON.stringify(req));
-  };
+      socket.onopen = () => {
+        const req = ["REQ", subId, {
+          kinds: [0],
+          authors: [pubkey]
+        }];
+        socket.send(JSON.stringify(req));
+      };
 
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data[0] === "EVENT" && data[2].kind === 0) {
-      const metadata = JSON.parse(data[2].content);
-      if (metadata.name) profileName.textContent = metadata.name;
-      if (metadata.picture) {
-        profilePic.src = metadata.picture;
-        profilePic.style.display = "block";
-      }
-      socket.close();
-    }
-  };
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data[0] === "EVENT" && data[2] && data[2].kind === 0) {
+            const metadata = JSON.parse(data[2].content);
+            if (metadata.name) {
+              profileName.textContent = metadata.name;
+              profileFound = true;
+            }
+            if (metadata.picture) {
+              profilePic.src = metadata.picture;
+              profilePic.style.display = "block";
+              profileFound = true;
+            }
+            clearTimeout(timeout);
+            socket.close();
+            completedRelays++;
+            if (profileFound || completedRelays === relays.length) {
+              resolve();
+            }
+          }
+        } catch (e) {
+          console.warn("Error parsing profile metadata:", e);
+        }
+      };
+
+      socket.onerror = () => {
+        clearTimeout(timeout);
+        socket.close();
+        completedRelays++;
+        if (completedRelays === relays.length) {
+          resolve();
+        }
+      };
+
+      socket.onclose = () => {
+        clearTimeout(timeout);
+        completedRelays++;
+        if (completedRelays === relays.length) {
+          resolve();
+        }
+      };
+    });
+  });
 }
 
 // --------------------
@@ -393,7 +436,7 @@ async function restorePersistedState() {
   const savedPubkey = getNostrLogin();
   const savedMethod = getNostrLoginMethod();
   if (savedPubkey) {
-    loadNostrProfile(savedPubkey, savedMethod || "extension");
+    await loadNostrProfile(savedPubkey, savedMethod || "extension");
   }
   
   // Restore NWC connection
@@ -454,7 +497,7 @@ function wire() {
     if (!window.nostr) return alert("Nostr extension not detected");
     try {
       const pubkey = await window.nostr.getPublicKey();
-      loadNostrProfile(pubkey, "extension");
+      await loadNostrProfile(pubkey, "extension");
     } catch (err) {
       alert("Failed to connect: " + err.message);
     }
@@ -483,7 +526,7 @@ function wire() {
       const pubkeyHex = typeof pubkeyBytes === 'string' ? pubkeyBytes : bytesToHex(pubkeyBytes);
       
       // Only save pubkey, NOT the private key for security
-      loadNostrProfile(pubkeyHex, "nsec");
+      await loadNostrProfile(pubkeyHex, "nsec");
       
       // Clear the nsec input for security
       $("nsecInput").value = "";

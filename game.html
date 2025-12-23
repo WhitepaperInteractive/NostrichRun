@@ -794,52 +794,72 @@
             
             cachedProfile = { pubkey, name: null, picture: null };
 
-            const relay = "wss://relay.nostr.band";
-            const subId = Math.random().toString(36).substring(2);
-
             return new Promise((resolve) => {
-                try {
+                const relays = ["wss://relay.nostr.band", "wss://relay.damus.io", "wss://nos.lol"];
+                let profileFound = false;
+                let completedRelays = 0;
+
+                relays.forEach((relay) => {
+                    const subId = Math.random().toString(36).substring(2);
                     const socket = new WebSocket(relay);
                     const timeout = setTimeout(() => {
                         socket.close();
-                        resolve();
-                    }, 5000);
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            resolve();
+                        }
+                    }, 3000);
 
                     socket.onopen = () => {
                         const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
                         socket.send(JSON.stringify(req));
                     };
+
                     socket.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data[0] === "EVENT" && data[2].kind === 0) {
-                            try {
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data[0] === "EVENT" && data[2] && data[2].kind === 0) {
                                 const metadata = JSON.parse(data[2].content);
                                 if (metadata.name) {
                                     profileName.textContent = metadata.name;
                                     cachedProfile.name = metadata.name;
+                                    profileFound = true;
                                 }
                                 if (metadata.picture) {
                                     profilePic.src = metadata.picture;
                                     profilePic.style.display = "block";
                                     cachedProfile.picture = metadata.picture;
+                                    profileFound = true;
                                 }
-                            } catch (e) {
-                                console.warn("Failed to parse metadata:", e);
+                                clearTimeout(timeout);
+                                socket.close();
+                                completedRelays++;
+                                if (profileFound || completedRelays === relays.length) {
+                                    resolve();
+                                }
                             }
-                            clearTimeout(timeout);
-                            socket.close();
-                            resolve();
+                        } catch (e) {
+                            console.warn("Failed to parse metadata:", e);
                         }
                     };
 
                     socket.onerror = () => {
                         clearTimeout(timeout);
-                        resolve();
+                        socket.close();
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            resolve();
+                        }
                     };
-                } catch (e) {
-                    console.warn("Failed to load profile:", e);
-                    resolve();
-                }
+
+                    socket.onclose = () => {
+                        clearTimeout(timeout);
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            resolve();
+                        }
+                    };
+                });
             });
         }
 
@@ -1197,54 +1217,81 @@
                 "wss://nos.lol"
             ];
 
-            const queryRelay = (relayUrl) => {
-                return new Promise((relayResolve) => {
+            return new Promise((mainResolve) => {
+                let foundMetadata = null;
+                let completedRelays = 0;
+
+                relays.forEach((relayUrl) => {
                     const subId = Math.random().toString(36).substring(2);
                     const socket = new WebSocket(relayUrl);
-                    let foundMetadata = false;
+                    let metadataReceived = false;
                     
                     const timeout = setTimeout(() => {
                         socket.close();
-                        if (!foundMetadata) relayResolve(null);
-                    }, 5000);
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            mainResolve(foundMetadata || {});
+                        }
+                    }, 3000);
 
                     socket.onopen = () => {
-                        const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
-                        socket.send(JSON.stringify(req));
+                        try {
+                            const req = ["REQ", subId, { kinds: [0], authors: [pubkey] }];
+                            socket.send(JSON.stringify(req));
+                        } catch (e) {
+                            clearTimeout(timeout);
+                            socket.close();
+                            completedRelays++;
+                            if (completedRelays === relays.length) {
+                                mainResolve(foundMetadata || {});
+                            }
+                        }
                     };
 
                     socket.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-                        if (data[0] === "EVENT" && data[2].kind === 0) {
-                            try {
-                                const metadata = JSON.parse(data[2].content);
-                                if (metadata.name) {
-                                    foundMetadata = true;
-                                    clearTimeout(timeout);
-                                    socket.close();
-                                    relayResolve(metadata);
+                        try {
+                            const data = JSON.parse(event.data);
+                            if (data[0] === "EVENT" && data[2] && data[2].kind === 0) {
+                                try {
+                                    const metadata = JSON.parse(data[2].content);
+                                    if (metadata.name && !foundMetadata) {
+                                        foundMetadata = metadata;
+                                    }
+                                    metadataReceived = true;
+                                } catch (e) {
+                                    console.warn("Failed to parse metadata from", relayUrl, ":", e);
                                 }
-                            } catch (e) {
-                                // Continue waiting for other events
+                            } else if (data[0] === "EOSE") {
+                                clearTimeout(timeout);
+                                socket.close();
+                                completedRelays++;
+                                if (completedRelays === relays.length) {
+                                    mainResolve(foundMetadata || {});
+                                }
                             }
-                        } else if (data[0] === "EOSE") {
-                            clearTimeout(timeout);
-                            socket.close();
-                            if (!foundMetadata) relayResolve(null);
+                        } catch (e) {
+                            console.warn("Error handling relay message from", relayUrl, ":", e);
                         }
                     };
 
                     socket.onerror = () => {
                         clearTimeout(timeout);
-                        if (!foundMetadata) relayResolve(null);
+                        socket.close();
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            mainResolve(foundMetadata || {});
+                        }
+                    };
+
+                    socket.onclose = () => {
+                        clearTimeout(timeout);
+                        completedRelays++;
+                        if (completedRelays === relays.length) {
+                            mainResolve(foundMetadata || {});
+                        }
                     };
                 });
-            };
-
-            // Query all relays in parallel and return first successful result with a name
-            const results = await Promise.all(relays.map(queryRelay));
-            const metadata = results.find(m => m && m.name) || results.find(m => m) || {};
-            return metadata;
+            });
         }
 
         async function fetchLeaderboard() {
@@ -1388,24 +1435,31 @@
                 const profilePromises = sortedScores.map(async (entry) => {
                     let displayName = entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4);
                     let picture = null;
+                    let contentName = null;
 
-                    // Try to extract player name from event content first
+                    // Try to extract player name from event content (as fallback)
                     if (entry.contentText) {
                         const match = entry.contentText.match(/^(.+?)\s+scored/);
                         if (match && match[1] && match[1].trim()) {
-                            displayName = match[1].trim();
+                            contentName = match[1].trim();
                         }
                     }
 
-                    // If no name found in content, fetch from profile metadata
-                    if (displayName === (entry.pubkey.slice(0, 8) + '...' + entry.pubkey.slice(-4))) {
-                        const metadata = await fetchProfileMetadata(entry.pubkey);
-                        if (metadata.name) {
-                            displayName = metadata.name;
-                        }
-                        if (metadata.picture) {
-                            picture = metadata.picture;
-                        }
+                    // Always fetch profile metadata to try to get the real username
+                    console.log("Fetching profile metadata for:", entry.pubkey.slice(0, 8));
+                    const metadata = await fetchProfileMetadata(entry.pubkey);
+                    console.log("Profile metadata received:", metadata, "for pubkey:", entry.pubkey.slice(0, 8));
+
+                    if (metadata.name) {
+                        displayName = metadata.name;
+                        console.log("Using profile name from metadata:", displayName);
+                    } else if (contentName) {
+                        displayName = contentName;
+                        console.log("Using profile name from content (fallback):", displayName);
+                    }
+
+                    if (metadata.picture) {
+                        picture = metadata.picture;
                     }
 
                     return {
