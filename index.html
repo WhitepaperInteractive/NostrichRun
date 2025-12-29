@@ -1,115 +1,115 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    
-    <title>Nostrich Run</title>
-    
-    <!-- Multi Format Favicons -->
-    <link rel="icon" type="image/png" href="./Favicon/favicon-96x96.png" sizes="96x96" />
-    <link rel="icon" type="image/svg+xml" href="./Favicon/favicon.svg" />
-    <link rel="shortcut icon" href="./Favicon/favicon.ico" />
-    <link rel="apple-touch-icon" sizes="180x180" href="./Favicon/apple-touch-icon.png" />
-    <meta name="apple-mobile-web-app-title" content="Nostrich Run" />
-    <link rel="manifest" href="./Favicon/site.webmanifest" />
 
-    <link rel="stylesheet" href="./styles.css" />
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-    <!-- QR generation using qrious (reliable, SVG-capable) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+  <title>Nostrich Run</title>
 
-  </head>
+  <!-- Multi Format Favicons -->
+  <link rel="icon" type="image/png" href="./Favicon/favicon-96x96.png" sizes="96x96" />
+  <link rel="icon" type="image/svg+xml" href="./Favicon/favicon.svg" />
+  <link rel="shortcut icon" href="./Favicon/favicon.ico" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./Favicon/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-title" content="Nostrich Run" />
+  <link rel="manifest" href="./Favicon/site.webmanifest" />
 
-  <body>
-    <div class="bg"></div>
+  <link rel="stylesheet" href="./styles.css" />
 
-    <header class="shell header">
-      <div class="brand">
-        <img class="logo" src="./logo.png" alt="Nostrich Run" />
-        <div class="brandText">
-          <div class="brandTitle">Nostrich Run</div>
-          <div class="brandSub">Pay to Play • GAMESTR Leaderboard Integration</div>
-        </div>
+  <!-- QR generation using qrious (reliable, SVG-capable) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+
+</head>
+
+<body>
+  <div class="bg"></div>
+
+  <header class="shell header">
+    <div class="brand">
+      <img class="logo" src="./logo.png" alt="Nostrich Run" />
+      <div class="brandText">
+        <div class="brandTitle">Nostrich Run</div>
+        <div class="brandSub">Pay to Play • GAMESTR Leaderboard Integration</div>
       </div>
-      
-      <!-- User Profile (top right, shows when logged in) -->
-      <div class="userProfile hidden" id="userProfile">
-        <img id="nostrProfilePic" src="" alt="" class="profilePic" />
-        <span id="nostrProfileName" class="profileName"></span>
-        <button class="btn small ghost" id="btnLogout">Logout</button>
-      </div>
-    </header>
+    </div>
 
-    <main class="shell grid">
-      <!-- NOSTR LOGIN -->
-      <section class="card">
-        <h2>Nostr Login</h2>
+    <!-- User Profile (top right, shows when logged in) -->
+    <div class="userProfile hidden" id="userProfile">
+      <img id="nostrProfilePic" src="" alt="" class="profilePic" />
+      <span id="nostrProfileName" class="profileName"></span>
+      <button class="btn small ghost" id="btnLogout">Logout</button>
+    </div>
+  </header>
+
+  <main class="shell grid">
+    <!-- NOSTR LOGIN -->
+    <section class="card">
+      <h2>Nostr Login</h2>
+      <p class="muted">
+        Optional, but recommended.
+      </p>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="ext">Extension</button>
+        <button class="tab" data-tab="nsec">Nsec</button>
+        <button class="tab" data-tab="bunker">Bunker</button>
+      </div>
+
+      <!-- Extension -->
+      <div class="tabPanel active" id="tab-ext">
         <p class="muted">
-          Optional, but recommended.
+          Uses a NIP-07 browser extension (<code>window.nostr</code>).
         </p>
+        <button class="btn" id="btnNip07">Connect extension</button>
+      </div>
 
-        <div class="tabs">
-          <button class="tab active" data-tab="ext">Extension</button>
-          <button class="tab" data-tab="nsec">Nsec</button>
-          <button class="tab" data-tab="bunker">Bunker</button>
+      <!-- Nsec -->
+      <div class="tabPanel" id="tab-nsec">
+        <label class="label">Enter nsec</label>
+        <div class="input-wrapper">
+          <input class="input" id="nsecInput" type="password" placeholder="nsec1..." autocomplete="off" />
+          <button type="button" class="eye-toggle" id="toggleNsec" aria-label="Toggle nsec visibility">
+            <svg class="eye-icon" id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg class="eye-icon hidden" id="eyeClosed" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <path
+                d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24">
+              </path>
+              <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>
+          </button>
         </div>
-
-        <!-- Extension -->
-        <div class="tabPanel active" id="tab-ext">
-          <p class="muted">
-            Uses a NIP-07 browser extension (<code>window.nostr</code>).
-          </p>
-          <button class="btn" id="btnNip07">Connect extension</button>
+        <div class="row">
+          <button class="btn" id="btnNsec">Login with nsec</button>
+          <button class="btn ghost" id="btnNsecClear">Clear</button>
         </div>
+        <p class="warn">
+          Avoid using your main key on random websites - an extension or bunker is safer.
+        </p>
+      </div>
 
-        <!-- Nsec -->
-        <div class="tabPanel" id="tab-nsec">
-          <label class="label">Enter nsec</label>
-          <div class="input-wrapper">
-            <input class="input" id="nsecInput" type="password" placeholder="nsec1..." autocomplete="off" />
-            <button type="button" class="eye-toggle" id="toggleNsec" aria-label="Toggle nsec visibility">
-              <svg class="eye-icon" id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-              <svg class="eye-icon hidden" id="eyeClosed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-              </svg>
-            </button>
-          </div>
-          <div class="row">
-            <button class="btn" id="btnNsec">Login with nsec</button>
-            <button class="btn ghost" id="btnNsecClear">Clear</button>
-          </div>
-          <p class="warn">
-            Avoid using your main key on random websites - an extension or bunker is safer.
-          </p>
+      <!-- Bunker -->
+      <div class="tabPanel" id="tab-bunker">
+        <label class="label">Bunker connection string</label>
+        <input class="input" id="bunkerInput" placeholder="bunker://<pubkey>?relay=wss://...&relay=wss://..."
+          autocomplete="off" />
+        <div class="row">
+          <button class="btn" id="btnBunker">Connect bunker</button>
+          <button class="btn ghost" id="btnBunkerDisconnect">Clear</button>
         </div>
-
-        <!-- Bunker -->
-        <div class="tabPanel" id="tab-bunker">
-          <label class="label">Bunker connection string</label>
-          <input
-            class="input"
-            id="bunkerInput"
-            placeholder="bunker://<pubkey>?relay=wss://...&relay=wss://..."
-            autocomplete="off"
-          />
-          <div class="row">
-            <button class="btn" id="btnBunker">Connect bunker</button>
-            <button class="btn ghost" id="btnBunkerDisconnect">Clear</button>
-          </div>
-          <!--
+        <!--
           <p class="muted">
             Uses <code>BunkerSigner</code> and <code>parseBunkerInput</code> (NIP-46).
           </p>
         -->
-        </div>
+      </div>
 
-         <br/>
-         <!-- INFO -->
+      <br />
+      <!-- INFO -->
       <section class="card span2">
         <h2>How it works</h2>
         <ul class="list">
@@ -121,45 +121,48 @@
         </ul>
       </section>
 
-    
-      </section>
 
-     
-      <!-- PAYMENT -->
-      <section class="card" id="paymentSection">
-        <!-- Already Paid State -->
-        <div id="alreadyPaidArea" class="hidden">
-          <h2>Ready to Play!</h2>
-          <div class="paidBanner" style="margin-bottom: 15px;">
-            <div class="paidTitle">Payment already confirmed</div>
-            <div class="muted">Your session is still active. Jump back into the game!</div>
-          </div>
-          <div class="row">
-            <a class="btn" href="./game.html">Enter Game</a>
-          </div>
+    </section>
+
+
+    <!-- PAYMENT -->
+    <section class="card" id="paymentSection">
+      <!-- Already Paid State -->
+      <div id="alreadyPaidArea" class="hidden">
+        <h2>Ready to Play!</h2>
+        <div class="paidBanner" style="margin-bottom: 15px;">
+          <div class="paidTitle">Payment already confirmed</div>
+          <div class="muted">Your session is still active. Jump back into the game!</div>
+        </div>
+        <div class="row">
+          <a class="btn" href="./game.html">Enter Game</a>
+        </div>
+      </div>
+
+      <!-- Need Payment State -->
+      <div id="needPaymentArea">
+        <h2>Pay 21 sats</h2>
+        <p class="muted">Pay with WebLN, NWC, or any Lightning wallet via invoice.</p>
+
+        <div class="row">
+          <button class="btn" id="btnCreateInvoice">New Invoice</button>
+          <button class="btn ghost" id="btnFreeTrial">Free Trial</button>
         </div>
 
-        <!-- Need Payment State -->
-        <div id="needPaymentArea">
-          <h2>Pay 21 sats</h2>
-          <p class="muted">Pay with WebLN, NWC, or any Lightning wallet via invoice.</p>
+        <div class="divider"></div>
 
-          <div class="row">
-            <button class="btn" id="btnCreateInvoice">New Invoice</button>
-          </div>
+        <div id="invoiceLoading" class="loadingIndicator hidden">
+          <div class="spinner"></div>
+          <span>Generating Invoice...</span>
+        </div>
 
-          <div class="divider"></div>
-
-          <div id="invoiceArea" class="hidden">
+        <div id="invoiceArea" class="hidden">
           <div class="payGrid">
             <div>
               <div class="label">QR</div>
-              <div class="qrBox" id="qr">
-                <div id="invoiceLoading" class="loadingIndicator hidden">
-                  <div class="spinner"></div>
-                  <span>Invoice Loading...</span>
-                </div>
-              </div>
+
+
+              <div class="qrBox" id="qr"></div>
               <div class="row">
                 <button class="btn small" id="btnCopyInvoice">Copy invoice</button>
               </div>
@@ -193,18 +196,13 @@
               <div id="nwcPanel" class="walletPanel hidden">
                 <!-- NWC Not Connected State -->
                 <div id="nwcNotConnected">
-                  <input
-                    class="input mono"
-                    id="nwcInput"
-                    placeholder="nostr+walletconnect://..."
-                    autocomplete="off"
-                  />
+                  <input class="input mono" id="nwcInput" placeholder="nostr+walletconnect://..." autocomplete="off" />
                   <div class="row">
                     <button class="btn" id="btnConnectNWC">Connect</button>
                   </div>
                   <p class="muted tiny">Connection saved for future visits.</p>
                 </div>
-                
+
                 <!-- NWC Connected State -->
                 <div id="nwcConnected" class="hidden">
                   <div class="nwcConnectedBanner">
@@ -238,11 +236,11 @@
             <button class="btn ghost" id="btnLock">Lock</button>
           </div>
         </div>
-        </div><!-- End needPaymentArea -->
-      </section>
+      </div><!-- End needPaymentArea -->
+    </section>
 
 
-      <!-- INFO
+    <!-- INFO
       <section class="card span2">
         <h2>How it works</h2>
         <ul class="list">
@@ -256,14 +254,16 @@
     -->
 
 
-    </main>
+  </main>
 
-    <footer class="shell footer">
-      <span class="muted tiny">
-        WhitepaperInteractive (admin@WhitepaperInteractive.com) • Lightning backend via LNBits • GAMESTR.io Leaderboard Integration
-      </span>
-    </footer>
+  <footer class="shell footer">
+    <span class="muted tiny">
+      WhitepaperInteractive (admin@WhitepaperInteractive.com) • Lightning backend via LNBits • GAMESTR.io Leaderboard
+      Integration
+    </span>
+  </footer>
 
-    <script type="module" src="./app.js"></script>
-  </body>
+  <script type="module" src="./app.js"></script>
+</body>
+
 </html>

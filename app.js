@@ -34,7 +34,7 @@ function hasAccess() {
 function showAlreadyPaidState() {
   const alreadyPaidArea = $("alreadyPaidArea");
   const needPaymentArea = $("needPaymentArea");
-  
+
   if (alreadyPaidArea && needPaymentArea) {
     alreadyPaidArea.classList.remove("hidden");
     needPaymentArea.classList.add("hidden");
@@ -44,7 +44,7 @@ function showAlreadyPaidState() {
 function showNeedPaymentState() {
   const alreadyPaidArea = $("alreadyPaidArea");
   const needPaymentArea = $("needPaymentArea");
-  
+
   if (alreadyPaidArea && needPaymentArea) {
     alreadyPaidArea.classList.add("hidden");
     needPaymentArea.classList.remove("hidden");
@@ -55,7 +55,7 @@ function grantAccess() {
   sessionStorage.setItem("p2p_access", "true");
   $("paidArea").classList.remove("hidden");
   $("invoiceArea").classList.add("hidden");
-  
+
   // Auto-redirect to game after payment
   window.location.href = "./game.html";
 }
@@ -117,7 +117,7 @@ async function loadNostrProfile(pubkey, loginMethod = "extension") {
   const profileName = $("nostrProfileName");
   const profilePic = $("nostrProfilePic");
   const userProfile = $("userProfile");
-  
+
   profileName.textContent = pubkey.slice(0, 8) + "..." + pubkey.slice(-8);
   profilePic.style.display = "none";
   if (userProfile) userProfile.classList.remove("hidden");
@@ -215,7 +215,7 @@ async function connectNWC(nwcUrl) {
     state.nwcClient = new alby.NWCClient({
       nostrWalletConnectUrl: nwcUrl
     });
-    
+
     // Save URL for persistence
     saveNWCUrl(nwcUrl);
     showNWCConnected();
@@ -239,11 +239,12 @@ function disconnectNWC() {
 async function createInvoice() {
   const qrContainer = $("qr");
   const loadingIndicator = $("invoiceLoading");
-  
+
   // Show loading indicator
   if (loadingIndicator) loadingIndicator.classList.remove("hidden");
+  $("invoiceArea").classList.add("hidden");
   qrContainer.innerHTML = "";
-  
+
   try {
     const res = await fetch(
       http(`/api/v1/paywalls/invoice/${CONFIG.paywallId}?amount=${CONFIG.sats}`)
@@ -330,7 +331,7 @@ async function payWebLN() {
     alert("WebLN not detected. Please install a Lightning wallet extension like Alby.");
     return;
   }
-  
+
   if (!state.bolt11) {
     alert("No invoice to pay. Please create an invoice first.");
     return;
@@ -338,20 +339,20 @@ async function payWebLN() {
 
   const btn = $("btnPayWebLN");
   const originalText = btn.textContent;
-  
+
   try {
     btn.textContent = "Connecting...";
     btn.disabled = true;
-    
+
     // Enable WebLN connection
     await window.webln.enable();
-    
+
     btn.textContent = "Sending payment...";
-    
+
     // Send the payment
     const response = await window.webln.sendPayment(state.bolt11);
     console.log("WebLN payment response:", response);
-    
+
     btn.textContent = "Payment sent!";
     setTimeout(() => {
       btn.textContent = originalText;
@@ -361,7 +362,7 @@ async function payWebLN() {
     console.error("WebLN payment error:", err);
     btn.textContent = originalText;
     btn.disabled = false;
-    
+
     if (err.message && err.message.includes("User rejected")) {
       // User cancelled, no need to alert
       return;
@@ -378,7 +379,7 @@ async function payNWC() {
     alert("Please connect your NWC wallet first");
     return;
   }
-  
+
   if (!state.bolt11) {
     alert("No invoice to pay. Please create an invoice first.");
     return;
@@ -386,14 +387,14 @@ async function payNWC() {
 
   const btn = $("btnPayNWC");
   const originalText = btn.textContent;
-  
+
   try {
     btn.textContent = "Sending payment...";
     btn.disabled = true;
-    
+
     const response = await state.nwcClient.payInvoice({ invoice: state.bolt11 });
     console.log("Payment response:", response);
-    
+
     btn.textContent = "Payment sent!";
     setTimeout(() => {
       btn.textContent = originalText;
@@ -438,7 +439,7 @@ async function restorePersistedState() {
   if (savedPubkey) {
     await loadNostrProfile(savedPubkey, savedMethod || "extension");
   }
-  
+
   // Restore NWC connection
   const savedNWCUrl = getNWCUrl();
   if (savedNWCUrl) {
@@ -457,6 +458,14 @@ function wire() {
   $("btnCopyInvoice").onclick = copyInvoice;
   $("btnLock").onclick = revokeAccess;
 
+  if ($("btnFreeTrial")) {
+    $("btnFreeTrial").onclick = () => {
+      sessionStorage.setItem("p2p_access", "true");
+      sessionStorage.setItem("free_trial", "true");
+      window.location.href = "./game.html";
+    };
+  }
+
   // NWC Connect/Disconnect
   $("btnConnectNWC").onclick = async () => {
     const nwcUrl = $("nwcInput").value.trim();
@@ -464,17 +473,17 @@ function wire() {
       alert("Please enter your NWC connection string");
       return;
     }
-    
+
     const btn = $("btnConnectNWC");
     btn.textContent = "Connecting...";
     btn.disabled = true;
-    
+
     const success = await connectNWC(nwcUrl);
-    
+
     btn.textContent = "Connect";
     btn.disabled = false;
   };
-  
+
   $("btnDisconnectNWC").onclick = disconnectNWC;
 
   // Wallet Toggle Tabs
@@ -484,7 +493,7 @@ function wire() {
     $("weblnPanel").classList.remove("hidden");
     $("nwcPanel").classList.add("hidden");
   };
-  
+
   $("tabNWC").onclick = () => {
     $("tabNWC").classList.add("active");
     $("tabWebLN").classList.remove("active");
@@ -521,13 +530,13 @@ function wire() {
 
       const privateKeyBytes = decoded.data;
       const pubkeyBytes = getPublicKey(privateKeyBytes);
-      
+
       // Ensure we have a hex string for the relay query
       const pubkeyHex = typeof pubkeyBytes === 'string' ? pubkeyBytes : bytesToHex(pubkeyBytes);
-      
+
       // Only save pubkey, NOT the private key for security
       await loadNostrProfile(pubkeyHex, "nsec");
-      
+
       // Clear the nsec input for security
       $("nsecInput").value = "";
     } catch (err) {
@@ -544,7 +553,7 @@ function wire() {
     const input = $("nsecInput");
     const eyeOpen = $("eyeOpen");
     const eyeClosed = $("eyeClosed");
-    
+
     if (input.type === "password") {
       input.type = "text";
       eyeOpen.classList.add("hidden");
